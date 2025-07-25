@@ -47,10 +47,10 @@ impl <'db> DBManager<'db > {
     }
 }
 
-pub fn deduplicate(val: &str, db: &mut PickleDb) {
+pub fn deduplicate(val: &Vec<u8>, db: &mut PickleDb) {
     let keys_to_remove: Vec<_> = db.iter().filter_map(|kv|{
         if kv.get_key() != "id" {
-            if kv.get_value::<String>().unwrap() == val {
+            if &kv.get_value::<Vec<u8>>().unwrap() == val {
                 log! ("found match {}", kv.get_value::<String>().unwrap());
                 Some(kv.get_key().to_string())
             } else {
@@ -69,21 +69,29 @@ pub fn deduplicate(val: &str, db: &mut PickleDb) {
 }
 
 pub fn store(db_path: &str) {
-    let mut buffer = String::new();
-    let _ = io::stdin().read_to_string(&mut buffer);
+    let mut buffer: Vec<u8> = Vec::new();
+    let _ = io::stdin().read_to_end(&mut buffer);
 
-    if buffer.trim().is_empty() {
-        return
+    match str::from_utf8(&buffer) {
+        Ok(valid) => {
+            if valid.trim().is_empty(){
+                return
+            }
+        }
+        Err(error) => {
+            log! ("Encountered Errror {}", error);
+        }
+
     }
 
-    if buffer.len() > 5_usize *10_usize.pow(6) {
+    if buffer.len() > 5_usize*10_usize.pow(6) {
         return
     }
 
     let mut db = DBManager{db_path: db_path, read_only: false}.open();
 
     let id;
-    match db.get::<i32>("id") {
+    match db.get::<u32>("id") {
         Some(v) => {
             id = v + 1;
         }
@@ -110,14 +118,27 @@ pub fn list(db_path: &str, max_width: usize) {
 
     let mut lock = io::stdout().lock();
     for kv in entries {
-        let mut new_val: String = kv.get_value::<String>().unwrap().split_whitespace().collect::<Vec<_>>().join(" ");
-        new_val.truncate(max_width);
+        let mut new_val;
+        let format: String;
+        let value = kv.get_value::<Vec<u8>>().unwrap();
+        match String::from_utf8(value.clone()) {
+            Ok(valid) => {
+                new_val = valid.split_whitespace().collect::<Vec<_>>().join(" ");
+                new_val.truncate(max_width);
+                format = format!("{}:{}", kv.get_key(), new_val);
+            }
+            Err(_error) => {
+                new_val = String::from("Image");
+                format = format!("{}:{}-{}", kv.get_key(), new_val, value.len());
 
-        writeln! (lock,"{}:{}", kv.get_key(), new_val).unwrap();
+            }
+        }
+
+        writeln! (lock,"{}", format).unwrap();
     }
 }
 
-pub fn decode(db_path: &str) {
+pub fn decode(db_path: &str) -> Result<(), std::io::Error> {
     let mut buffer = String::new();
     let mut stdin = io::stdin();
     let _ = stdin.read_to_string(&mut buffer);
@@ -126,10 +147,11 @@ pub fn decode(db_path: &str) {
         Some((key, _val)) => {
             let db = DBManager{db_path: db_path, read_only: true}.open();
             let mut lock = io::stdout().lock();
-            write! (lock, "{}", db.get::<String>(key).unwrap()).unwrap();
+            lock.write_all(&db.get::<Vec<u8>>(key).unwrap())
         }
         None => {
             log! ("Error, this case impossible, bug in code!");
+            Ok(())
         }
     }
 }
@@ -137,9 +159,11 @@ pub fn decode(db_path: &str) {
 
 
 fn main() {
-    let db_path = "/opt/hosting/cliphist/cliphist/cliphist.db";
+    let db_path = "/opt/hosting/cliphist/cliphist/target/cliphist.db";
     let preview_width = 100;
     let args = Args::parse();
+
+
 
     if args.verbose {
         logger::enable_logging()
