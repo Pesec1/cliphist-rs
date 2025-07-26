@@ -163,8 +163,6 @@ fn main() {
     let preview_width = 100;
     let args = Args::parse();
 
-
-
     if args.verbose {
         logger::enable_logging()
     }
