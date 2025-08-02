@@ -8,7 +8,7 @@ pub fn enable_logging() {
 }
 
 pub fn is_enabled() -> bool {
-    return LOGGING_ENABLED.load(Ordering::Relaxed)
+    LOGGING_ENABLED.load(Ordering::Relaxed)
 }
 
 #[macro_export]

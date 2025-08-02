@@ -124,7 +124,11 @@ pub fn list(db_path: &str, max_width: usize) {
         match String::from_utf8(value.clone()) {
             Ok(valid) => {
                 new_val = valid.split_whitespace().collect::<Vec<_>>().join(" ");
-                new_val.truncate(max_width);
+                new_val = new_val
+                    .char_indices()
+                    .take_while(|(idx, _)| *idx < max_width)
+                    .map(|(_, ch) | ch)
+                    .collect();
                 format = format!("{}:{}", kv.get_key(), new_val);
             }
             Err(_error) => {
