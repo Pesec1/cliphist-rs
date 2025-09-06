@@ -121,19 +121,15 @@ pub fn list(db_path: &str, max_width: usize) {
         let mut new_val;
         let format: String;
         let value = kv.get_value::<Vec<u8>>().unwrap();
-        match String::from_utf8(value.clone()) {
+        match String::from_utf8(value) {
             Ok(valid) => {
                 new_val = valid.split_whitespace().collect::<Vec<_>>().join(" ");
-                new_val = new_val
-                    .char_indices()
-                    .take_while(|(idx, _)| *idx < max_width)
-                    .map(|(_, ch) | ch)
-                    .collect();
+                new_val.truncate(max_width);
                 format = format!("{}:{}", kv.get_key(), new_val);
             }
             Err(_error) => {
                 new_val = String::from("Image");
-                format = format!("{}:{}-{}", kv.get_key(), new_val, value.len());
+                format = format!("{}:{}", kv.get_key(), new_val);
 
             }
         }
